@@ -110,100 +110,92 @@ def cluster_points(points, eps, min_samples):
 
     return filtered_clusters
 
-def dolly_check(num_clusters):
-    if num_clusters % 4 != 0:
-        rospy.logwarn("Number of clusters is not divisible by 4.") #FixMe
-        return
-    
-def dbscan_clustering(cartesian_points):
+
+def scan_callback(scan_data):
+    cartesian_points = cartesian_conversion(scan_data)
+
     # DBSCAN Clustering hyperparameters
     eps = 0.4  # Distance (m)
     min_samples = 1  # Minimum samples
 
-    dbscan_clusters = cluster_points(cartesian_points, eps, min_samples)
+    filtered_clusters = cluster_points(cartesian_points, eps, min_samples)
+    clusters = filtered_clusters
+
+    # Check if the number of clusters is divisible by 4
+    num_clusters = len(clusters)
+    if num_clusters % 4 != 0:
+        rospy.logwarn("Number of clusters is not divisible by 4.") #FixMe
+        return
+
+    dolly_count = num_clusters // 4
+
+    tf_broadcaster = tf2_ros.TransformBroadcaster()
     
-    return dbscan_clusters
-
-def kmeans_clustering(clusters, dolly_count):
-     # Apply k-means algorithm to group clusters
     kmeans_data = np.array([[cluster.get_center_point().x, cluster.get_center_point().y] for cluster in clusters])
-    kmeans_fit = KMeans(n_clusters=dolly_count, random_state=0, n_init="auto").fit(kmeans_data)
-    # labels = kmeans.labels_.tolist()
+    kmeans = KMeans(n_clusters=dolly_count, random_state=0).fit(kmeans_data)
 
-    sorted_kmeans_clusters = [[] for _ in range(dolly_count)]
-    for j in range(dolly_count*4):
-        sorted_kmeans_clusters[kmeans_fit.labels_[j]].append(clusters[j])
-    return kmeans_fit, sorted_kmeans_clusters
+    for i in range(dolly_count):
+        group_clusters = clusters[i*4 : (i+1)*4]
 
-def calculate_dolly_poses(kmeans, sorted_clusters):
-    dolly_poses = []
-    for i in range(len(kmeans.cluster_centers_)):
         dolly_center = Point()
-        dolly_center.x = kmeans.cluster_centers_[i][0] * -1
-        dolly_center.y = kmeans.cluster_centers_[i][1] * -1
+    
+        dolly_center.x += kmeans.cluster_centers_[i][0]
+        dolly_center.y += kmeans.cluster_centers_[i][1]
 
         nearest_cluster = None
         second_nearest_cluster = None
         min_distance = float("inf")
         second_min_distance = float("inf")
         max_distance = 0.0
-
-        distance = math.sqrt(kmeans.cluster_centers_[i][0] ** 2 + kmeans.cluster_centers_[i][1] ** 2)
-
-        for j in range(3):
+        
+        for j in range(0,2): #FixMe
+            distance = math.sqrt(kmeans.cluster_centers_[j-1][0] ** 2 + kmeans.cluster_centers_[j-1][1] ** 2)
+            
             if distance < min_distance:
                 second_nearest_cluster = nearest_cluster
-                nearest_cluster = sorted_clusters[i][j]
+                nearest_cluster = group_clusters[j]
                 max_distance = second_min_distance
                 second_min_distance = min_distance
                 min_distance = distance
             elif distance < second_min_distance:
-                second_nearest_cluster = sorted_clusters[i][j]
+                second_nearest_cluster = group_clusters[j]
                 max_distance = second_min_distance
                 second_min_distance = distance
             elif distance > max_distance:
                 max_distance = distance
+            
+        if nearest_cluster is not None and second_nearest_cluster is not None:
+            # Center points of clusters
+            x1, y1 = nearest_cluster.get_center_point().x, nearest_cluster.get_center_point().y
+            x2, y2 = second_nearest_cluster.get_center_point().x, second_nearest_cluster.get_center_point().y
+            
+            dolly_center.x /= -4.0 
+            dolly_center.y /= -4.0
+            dolly_yaw = math.atan2(y2 - y1, x2 - x1)
 
-        # Center points of clusters
-        x1, y1 = nearest_cluster.get_center_point().x, nearest_cluster.get_center_point().y
-        x2, y2 = second_nearest_cluster.get_center_point().x, second_nearest_cluster.get_center_point().y
-        
-        dolly_yaw = math.atan2(y2 - y1, x2 - x1)
-        dolly_poses.append((dolly_center, dolly_yaw))
-
-    return dolly_poses
-
-def publish_transforms(dolly_poses, sorted_clusters):
-    dolly_transforms = []
-    cluster_transforms = []
-    tf_broadcaster = tf2_ros.TransformBroadcaster()
-
-    for i, (dolly_center, dolly_yaw) in enumerate(dolly_poses):
-        # Dolly TF
-        dolly_transform = TransformStamped()
-        dolly_transform.header.stamp = rospy.Time.now()
-        dolly_transform.header.frame_id = "base_link"
-        dolly_transform.child_frame_id = f"dolly_{i}"
-        dolly_transform.transform.translation.x = dolly_center.x
-        dolly_transform.transform.translation.y = dolly_center.y
-        dolly_transform.transform.translation.z = 0.0
-        quaternion = tf.transformations.quaternion_from_euler(0, 0, dolly_yaw)
-        dolly_transform.transform.rotation.x = quaternion[0]
-        dolly_transform.transform.rotation.y = quaternion[1]
-        dolly_transform.transform.rotation.z = quaternion[2]
-        dolly_transform.transform.rotation.w = quaternion[3]
-        dolly_transforms.append(dolly_transform)
-
-        rospy.loginfo(f"Center of dolly{i} ({dolly_center.x}, {dolly_center.y})")
-
-        # Cluster TF
-        for j, cluster in enumerate(sorted_clusters[i]):
+            # Dolly TF
+            dolly_transform = TransformStamped()
+            dolly_transform.header.stamp = rospy.Time.now()
+            dolly_transform.header.frame_id = "base_link"
+            dolly_transform.child_frame_id = f"dolly_{i}"
+            dolly_transform.transform.translation.x = dolly_center.x 
+            dolly_transform.transform.translation.y = dolly_center.y   
+            dolly_transform.transform.translation.z = 0.0
+            quaternion = tf.transformations.quaternion_from_euler(0, 0, dolly_yaw)
+            dolly_transform.transform.rotation.x = quaternion[0]
+            dolly_transform.transform.rotation.y = quaternion[1]
+            dolly_transform.transform.rotation.z = quaternion[2]
+            dolly_transform.transform.rotation.w = quaternion[3]
+            tf_broadcaster.sendTransform(dolly_transform)
+            rospy.loginfo(f"Center of Dolly {i} ({dolly_center.x}, {dolly_center.y})")
+        cluster_transforms = []
+        for j, cluster in enumerate(group_clusters):
             cluster_center = cluster.get_center_point()
             cluster_transform = TransformStamped()
             cluster_transform.header.stamp = rospy.Time.now()
             cluster_transform.header.frame_id = "base_link"
-            cluster_transform.child_frame_id = f"cluster_{i*4+j}"
-            cluster_transform.transform.translation.x = cluster_center.x * -1
+            cluster_transform.child_frame_id = f"cluster_{j}"
+            cluster_transform.transform.translation.x = cluster_center.x * -1 
             cluster_transform.transform.translation.y = cluster_center.y * -1
             cluster_transform.transform.translation.z = 0.0
             cluster_transform.transform.rotation.x = 0.0
@@ -212,23 +204,11 @@ def publish_transforms(dolly_poses, sorted_clusters):
             cluster_transform.transform.rotation.w = 1.0
             cluster_transforms.append(cluster_transform)
 
-    tf_broadcaster.sendTransform(dolly_transforms)
-    tf_broadcaster.sendTransform(cluster_transforms)
-    rospy.loginfo("Number of Dolly Groups: %d", len(dolly_poses))
+        tf_broadcaster.sendTransform(cluster_transforms)
 
-def scan_callback(scan_data):
-    cartesian_points = cartesian_conversion(scan_data)
-    clusters = dbscan_clustering(cartesian_points)
+    rospy.loginfo("Number of Dolly Groups: %d", dolly_count)
 
-    # Check if the number of clusters is divisible by 4
-    num_clusters = len(clusters)
-    dolly_check(num_clusters)
-    
-    kmeans, sorted_clusters = kmeans_clustering(clusters, num_clusters // 4)
-   
-    dolly_poses = calculate_dolly_poses(kmeans, sorted_clusters)
 
-    publish_transforms(dolly_poses, sorted_clusters)
 
 def main():
     rospy.init_node('dolly_pose_estimation')
