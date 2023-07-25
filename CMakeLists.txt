@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(dolly_detection)
+project(dolly_pose_estimation)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -14,6 +14,8 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   tf
   tf2_ros
+  message_generation
+  std_msgs
 )
 
 ## System dependencies are found with CMake's conventions
@@ -57,11 +59,10 @@ find_package(catkin REQUIRED COMPONENTS
 # )
 
 ## Generate services in the 'srv' folder
-# add_service_files(
-#   FILES
-#   Service1.srv
-#   Service2.srv
-# )
+ add_service_files(
+  FILES
+  DollyPose.srv
+ )
 
 ## Generate actions in the 'action' folder
 # add_action_files(
@@ -71,10 +72,10 @@ find_package(catkin REQUIRED COMPONENTS
 # )
 
 ## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   geometry_msgs#   sensor_msgs
-# )
+ generate_messages(
+  DEPENDENCIES
+  geometry_msgs sensor_msgs
+ )
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -108,7 +109,8 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES dolly_detection
-#  CATKIN_DEPENDS geometry_msgs roscpp rospy sensor_msgs tf tf2_ros
+  CATKIN_DEPENDS rospy message_runtime  
+#  geometry_msgs roscpp rospy sensor_msgs tf tf2_ros
 #  DEPENDS system_lib
 )
 
