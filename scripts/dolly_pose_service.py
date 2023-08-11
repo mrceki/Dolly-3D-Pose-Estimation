@@ -41,7 +41,7 @@ def cartesian_conversion(scan_data):
     cartesian_points = []
     angle = scan_data.angle_min
     for range_value in scan_data.ranges:
-        if not math.isnan(range_value) and range_value != 0.0 and range_value < scan_data.range_max:
+        if not math.isnan(range_value) and range_value != 0.0 and range_value < 5:
             x = range_value * math.cos(angle)
             y = range_value * math.sin(angle)
             point = Point(x, y, 0.0)
@@ -73,7 +73,7 @@ def cluster_points(points, eps, min_samples):
         cluster_points = [points[j] for j in range(len(points)) if labels[j] == i]
         for point in cluster_points:
             cluster.add_point(point)
-        if len(cluster_points) <= 5:  # If there are no more than 5 instances in the cluster
+        if len(cluster_points) <= 10:  # If there are no more than 5 instances in the cluster
             unfiltered_clusters.append(cluster)
 
    # Clustering filter -> Must have at least 3 clusters at 1.92 distance and clusters closer than 5 meters
@@ -116,11 +116,11 @@ def cluster_points(points, eps, min_samples):
 def dolly_check(num_clusters):
     if num_clusters % 4 != 0:
         rospy.logwarn("Number of clusters is not divisible by 4.") #FixMe
-        return
+        return False
     
 def dbscan_clustering(cartesian_points):
     # DBSCAN Clustering hyperparameters
-    eps = 0.4  # Distance (m)
+    eps = 0.2  # Distance (m)
     min_samples = 1  # Minimum samples
 
     dbscan_clusters = cluster_points(cartesian_points, eps, min_samples)
@@ -138,40 +138,57 @@ def kmeans_clustering(clusters, dolly_count):
         sorted_kmeans_clusters[kmeans_fit.labels_[j]].append(clusters[j])
     return kmeans_fit, sorted_kmeans_clusters
 
+def sort_dolly_legs(i,sorted_clusters):
+    distance_of_dolly_legs = []
+    for j in range(4):
+        x, y = sorted_clusters[i][j].get_center_point().x, sorted_clusters[i][j].get_center_point().y
+        distance = math.sqrt(x ** 2 + y ** 2)
+
+
+    return distance_of_dolly_legs
+
+def compare_and_sort_legs(i,sorted_clusters):
+
+    coordinates = [sorted_clusters[i][j].get_center_point() for j in range(4)]
+    x0, y0 = coordinates[0].x, coordinates[0].y
+    x1, y1 = coordinates[1].x, coordinates[1].y
+    x2, y2 = coordinates[2].x, coordinates[2].y
+    x3, y3 = coordinates[3].x, coordinates[3].y
+
+    distance_1 = math.sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2) 
+    distance_2 = math.sqrt((x2 - x0) ** 2 + (y2 - y0) ** 2) 
+    distance_3 = math.sqrt((x3 - x0) ** 2 + (y3 - y0) ** 2) 
+
+    offset = 0.16   
+    if DOLLY_SIZE_HYPOTENUSE - offset <= distance_1 <= DOLLY_SIZE_HYPOTENUSE + offset:
+        sorted_clusters[i][1], sorted_clusters[i][3] = sorted_clusters[i][3], sorted_clusters[i][1]
+        print("first if")
+    if DOLLY_SIZE_HYPOTENUSE - offset <= distance_2 <= DOLLY_SIZE_HYPOTENUSE + offset:
+        sorted_clusters[i][2], sorted_clusters[i][3] = sorted_clusters[i][3], sorted_clusters[i][2]
+        if distance_3 < distance_1:
+            sorted_clusters[i][1], sorted_clusters[i][2] = sorted_clusters[i][2], sorted_clusters[i][1]
+        print("second if")
+    else:
+        if distance_2 < distance_1:
+            sorted_clusters[i][2], sorted_clusters[i][1] = sorted_clusters[i][1], sorted_clusters[i][2]
+
+    return sorted_clusters
+
 def calculate_dolly_poses(kmeans, sorted_clusters):
     dolly_poses = []
     for i in range(len(kmeans.cluster_centers_)):
         dolly_center = Point()
-        dolly_center.x = kmeans.cluster_centers_[i][0] * -1
-        dolly_center.y = kmeans.cluster_centers_[i][1] * -1
+        dolly_center.x = kmeans.cluster_centers_[i][0]
+        dolly_center.y = kmeans.cluster_centers_[i][1]
 
-        nearest_cluster = None
-        second_nearest_cluster = None
-        min_distance = float("inf")
-        second_min_distance = float("inf")
-        max_distance = 0.0
-
-        distance = math.sqrt(kmeans.cluster_centers_[i][0] ** 2 + kmeans.cluster_centers_[i][1] ** 2)
-
-        for j in range(3):
-            if distance < min_distance:
-                second_nearest_cluster = nearest_cluster
-                nearest_cluster = sorted_clusters[i][j]
-                max_distance = second_min_distance
-                second_min_distance = min_distance
-                min_distance = distance
-            elif distance < second_min_distance:
-                second_nearest_cluster = sorted_clusters[i][j]
-                max_distance = second_min_distance
-                second_min_distance = distance
-            elif distance > max_distance:
-                max_distance = distance
+        sorted_clusters[i] = sorted(sorted_clusters[i], key=lambda x: sort_dolly_legs(i, sorted_clusters))
+        sorted_clusters = compare_and_sort_legs(i,sorted_clusters)
 
         # Center points of clusters
-        x1, y1 = nearest_cluster.get_center_point().x, nearest_cluster.get_center_point().y
-        x2, y2 = second_nearest_cluster.get_center_point().x, second_nearest_cluster.get_center_point().y
+        x1, y1 = sorted_clusters[i][0].get_center_point().x, sorted_clusters[i][0].get_center_point().y
+        x2, y2 = sorted_clusters[i][2].get_center_point().x, sorted_clusters[i][2].get_center_point().y
         
-        dolly_yaw = math.atan2(y2 - y1, x2 - x1)
+        dolly_yaw = math.atan2(y2 - y1, x2 - x1) - math.pi/2
         dolly_poses.append((dolly_center, dolly_yaw))
     return dolly_poses
 
@@ -187,8 +204,8 @@ def publish_transforms(dolly_poses, sorted_clusters):
         dolly_transform.header.stamp = rospy.Time.now()
         dolly_transform.header.frame_id = "base_link"
         dolly_transform.child_frame_id = f"dolly_{i}"
-        dolly_transform.transform.translation.x = dolly_center.x
-        dolly_transform.transform.translation.y = dolly_center.y
+        dolly_transform.transform.translation.x = dolly_center.x * -1
+        dolly_transform.transform.translation.y = dolly_center.y * -1
         dolly_transform.transform.translation.z = 0.0
         quaternion = tf.transformations.quaternion_from_euler(0, 0, dolly_yaw)
         dolly_transform.transform.rotation.x = quaternion[0]
@@ -207,8 +224,8 @@ def publish_transforms(dolly_poses, sorted_clusters):
                 cluster_transform.header.stamp = rospy.Time.now()
                 cluster_transform.header.frame_id = "base_link"
                 cluster_transform.child_frame_id = f"cluster_{i*4+j}"
-                cluster_transform.transform.translation.x = cluster_center.x * -1
-                cluster_transform.transform.translation.y = cluster_center.y * -1
+                cluster_transform.transform.translation.x = cluster_center.x 
+                cluster_transform.transform.translation.y = cluster_center.y 
                 cluster_transform.transform.translation.z = 0.0
                 cluster_transform.transform.rotation.x = 0.0
                 cluster_transform.transform.rotation.y = 0.0
