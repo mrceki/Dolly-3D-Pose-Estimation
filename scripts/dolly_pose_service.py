@@ -162,12 +162,10 @@ def compare_and_sort_legs(i,sorted_clusters):
     offset = 0.16   
     if DOLLY_SIZE_HYPOTENUSE - offset <= distance_1 <= DOLLY_SIZE_HYPOTENUSE + offset:
         sorted_clusters[i][1], sorted_clusters[i][3] = sorted_clusters[i][3], sorted_clusters[i][1]
-        print("first if")
     if DOLLY_SIZE_HYPOTENUSE - offset <= distance_2 <= DOLLY_SIZE_HYPOTENUSE + offset:
         sorted_clusters[i][2], sorted_clusters[i][3] = sorted_clusters[i][3], sorted_clusters[i][2]
         if distance_3 < distance_1:
             sorted_clusters[i][1], sorted_clusters[i][2] = sorted_clusters[i][2], sorted_clusters[i][1]
-        print("second if")
     else:
         if distance_2 < distance_1:
             sorted_clusters[i][2], sorted_clusters[i][1] = sorted_clusters[i][1], sorted_clusters[i][2]
@@ -204,8 +202,8 @@ def publish_transforms(dolly_poses, sorted_clusters):
         dolly_transform.header.stamp = rospy.Time.now()
         dolly_transform.header.frame_id = "base_link"
         dolly_transform.child_frame_id = f"dolly_{i}"
-        dolly_transform.transform.translation.x = dolly_center.x * -1
-        dolly_transform.transform.translation.y = dolly_center.y * -1
+        dolly_transform.transform.translation.x = dolly_center.x 
+        dolly_transform.transform.translation.y = dolly_center.y 
         dolly_transform.transform.translation.z = 0.0
         quaternion = tf.transformations.quaternion_from_euler(0, 0, dolly_yaw)
         dolly_transform.transform.rotation.x = quaternion[0]

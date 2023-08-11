@@ -9,7 +9,7 @@ def dolly_pose_estimation_client():
     try:
         dolly_pose_estimation = rospy.ServiceProxy('/dolly_pose_estimation', DollyPose)
 
-        scan_data = rospy.wait_for_message('/diffbot/scan', LaserScan)
+        scan_data = rospy.wait_for_message('/scan', LaserScan)
 
         response = dolly_pose_estimation(scan_data)
         dolly_positions = response.poses.poses
