@@ -1,0 +1,11 @@
+# Define goal for trigger
+#bool is_proccesing
+bool cancel
+---
+# Define the result
+geometry_msgs/PoseArray poses
+---
+# Define a feedback message
+string message
+geometry_msgs/PoseArray poses
+

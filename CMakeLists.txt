@@ -16,6 +16,8 @@ find_package(catkin REQUIRED COMPONENTS
   tf2_ros
   message_generation
   std_msgs
+  actionlib
+  actionlib_msgs
 )
 
 ## System dependencies are found with CMake's conventions
@@ -65,16 +67,16 @@ find_package(catkin REQUIRED COMPONENTS
  )
 
 ## Generate actions in the 'action' folder
-# add_action_files(
-#   FILES
-#   Action1.action
-#   Action2.action
-# )
+add_action_files(
+   DIRECTORY action
+   FILES DollyPose.action
+   )
+
 
 ## Generate added messages and services with any dependencies listed here
  generate_messages(
   DEPENDENCIES
-  geometry_msgs sensor_msgs
+  geometry_msgs sensor_msgs actionlib_msgs std_msgs actionlib
  )
 
 ################################################
@@ -109,7 +111,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES dolly_detection
-  CATKIN_DEPENDS rospy message_runtime  
+  CATKIN_DEPENDS rospy message_runtime actionlib actionlib_msgs
 #  geometry_msgs roscpp rospy sensor_msgs tf tf2_ros
 #  DEPENDS system_lib
 )
