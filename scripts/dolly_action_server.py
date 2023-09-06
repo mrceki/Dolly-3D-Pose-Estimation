@@ -23,11 +23,12 @@ class DollyPoseEstimationServer:
 
     def execute(self, goal: DollyPoseGoal):
         feedback = DollyPoseFeedback()
+        result = DollyPoseResult()
         if goal.cancel:
             self.is_processing = False
             result =  DollyPoseResult()
             result.success = False
-            result.message = "Dolly pose estimation canceled."
+            # result.message = "Dolly pose estimation canceled."
             self.server.set_preempted(result)
             return
 
@@ -38,7 +39,9 @@ class DollyPoseEstimationServer:
 
             if cartesian_points == []:
                 feedback.message = "Can't find any laser"
+                feedback.success = False
                 self.server.publish_feedback(feedback)
+                result.success = False
                 continue
             
             clusters = utils.dbscan_clustering(cartesian_points)
@@ -47,6 +50,7 @@ class DollyPoseEstimationServer:
 
             if num_clusters < 4:
                 feedback.message = "Not enough clusters found."
+                feedback.success = False
                 self.server.publish_feedback(feedback)
                 continue
 
@@ -62,10 +66,11 @@ class DollyPoseEstimationServer:
 
             feedback.message = f"{int(num_clusters/4)} dolly found."
             feedback.poses = respond
+            feedback.success = True 
             self.server.publish_feedback(feedback)
                  
-        result = DollyPoseResult()
-        self.server.set_succeeded(result)
+        
+            # self.server.set_preempted(result)
 
 def main():
     rospy.init_node('dolly_pose_estimation_server')
