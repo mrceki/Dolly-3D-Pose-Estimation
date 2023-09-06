@@ -11,5 +11,6 @@
     <param name="dbscan_eps" type="double" value="0.25"/>
     <param name="dbscan_min_samples" type="int" value="1"/>
     <param name="dbscan_max_samples" type="int" value="6"/>    
+    <param name="scan_topic" type="str" value="/scan"/>
   </node>
 </launch>

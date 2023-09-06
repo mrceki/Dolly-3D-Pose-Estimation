@@ -24,6 +24,7 @@ class DollyPoseEstimationServer:
         dbscan_min_samples = rospy.get_param("/dolly_pose_estimation_server/dbscan_min_samples", 1)
         dbscan_max_samples = rospy.get_param("/dolly_pose_estimation_server/dbscan_max_samples", 6)
         dolly_dimension_tolerance = rospy.get_param("/dolly_pose_estimation_server/dolly_dimension_tolerance", 0.15)
+        scan_topic = rospy.get_param("/dolly_pose_estimation_server/scan_topic", "/scan")
         feedback = DollyPoseFeedback()
         result = DollyPoseResult()
         if goal.cancel:
@@ -36,7 +37,7 @@ class DollyPoseEstimationServer:
 
         self.is_processing = True
         while self.is_processing:
-            scan_data = rospy.wait_for_message("/scan", LaserScan, timeout=5)
+            scan_data = rospy.wait_for_message(scan_topic, LaserScan, timeout=5)
             cartesian_points = utils.cartesian_conversion(scan_data, scan_range)
 
             if cartesian_points == []:
