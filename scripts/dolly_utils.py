@@ -34,11 +34,11 @@ class LegPointCluster:
         return center_point
 
 # Convert laserscan data to cartesian data
-def cartesian_conversion(scan_data):
+def cartesian_conversion(scan_data, scan_range):
     cartesian_points = []
     angle = scan_data.angle_min
     for range_value in scan_data.ranges:
-        if not math.isnan(range_value) and range_value != 0.0 and range_value < 5:
+        if not math.isnan(range_value) and range_value != 0.0 and range_value < scan_range:
             x = range_value * math.cos(angle)
             y = range_value * math.sin(angle)
             point = Point(x, y, 0.0)
@@ -53,7 +53,7 @@ def calculate_distance(cluster1, cluster2):
     distance = math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
     return distance
 
-def cluster_points(points, eps, min_samples):
+def cluster_points(points, eps, min_samples, max_samples, dolly_dimension_tolerance, scan_range):
     # Convert to numpy array
     data = np.array([[point.x, point.y] for point in points])
 
@@ -70,7 +70,7 @@ def cluster_points(points, eps, min_samples):
         cluster_points = [points[j] for j in range(len(points)) if labels[j] == i]
         for point in cluster_points:
             cluster.add_point(point)
-        if len(cluster_points) <= 10:  # If there are no more than 5 instances in the cluster
+        if len(cluster_points) <= max_samples:  # If there are no more than 5 instances in the cluster
             unfiltered_clusters.append(cluster)
 
    # Clustering filter -> Must have at least 3 clusters at 1.92 distance and clusters closer than 5 meters
@@ -82,15 +82,15 @@ def cluster_points(points, eps, min_samples):
             if other_cluster != cluster:
                 x2, y2 = other_cluster.get_center_point().x, other_cluster.get_center_point().y
                 distance = math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
-                if distance <= 1.92:
+                if distance <= 1.80: #hypotenuse of dolly 
                     near_clusters.append(other_cluster)
-        if len(near_clusters) >= 2 and cluster.get_center_point().x**2 + cluster.get_center_point().y**2 <= 25:  
+        if len(near_clusters) >= 2 and cluster.get_center_point().x**2 + cluster.get_center_point().y**2 <= scan_range**2: # Check Here 
             clusters.append(cluster)
 
     # Must other clusters at given sizes
     filtered_clusters = []
 
-    dimension_offset = 0.2
+    dimension_offset = dolly_dimension_tolerance
     dimension_ranges = [(DOLLY_SIZE_X, dimension_offset), (DOLLY_SIZE_Y, dimension_offset), (DOLLY_SIZE_HYPOTENUSE, dimension_offset)]
 
     for cluster in clusters:
@@ -104,8 +104,8 @@ def cluster_points(points, eps, min_samples):
 
                 if any((dim - offset <= distance <= dim + offset) for dim, offset in dimension_ranges):
                     valid_distance_count += 1
-
-        if valid_distance_count >= 3:
+        # !!!!!!!!!!!!!1Fix here for more than 3 valid distance count!!!!!!!!!!!!!!
+        if valid_distance_count == 3:         
             filtered_clusters.append(cluster)
 
     return filtered_clusters
@@ -115,12 +115,12 @@ def dolly_check(num_clusters):
         rospy.logwarn("Number of clusters is not divisible by 4.") #FixMe
         return False
     
-def dbscan_clustering(cartesian_points):
+def dbscan_clustering(cartesian_points, max_samples, dolly_dimension_tolerance, eps, min_samples, scan_range):
     # DBSCAN Clustering hyperparameters
-    eps = 0.2  # Distance (m)
-    min_samples = 1  # Minimum samples
+    eps = eps # Distance (m)
+    min_samples = min_samples  # Minimum samples
 
-    dbscan_clusters = cluster_points(cartesian_points, eps, min_samples)
+    dbscan_clusters = cluster_points(cartesian_points, eps, min_samples, max_samples, dolly_dimension_tolerance, scan_range)
     
     return dbscan_clusters
 
@@ -140,11 +140,29 @@ def sort_dolly_legs(i,sorted_clusters):
     for j in range(4):
         x, y = sorted_clusters[i][j].get_center_point().x, sorted_clusters[i][j].get_center_point().y
         distance = math.sqrt(x ** 2 + y ** 2)
-
-
+        distance_of_dolly_legs.append(distance)
     return distance_of_dolly_legs
 
-def compare_and_sort_legs(i,sorted_clusters):
+# def sort_dolly_legs(i,sorted_clusters):
+#     distance_of_dolly_legs = []
+#     if i <= len(sorted_clusters):
+#         # if len(sorted_clusters[i]) < 4:
+#         #     del sorted_clusters[i]  # Adım 1
+    
+#         #     # Tüm alt listeleri bir adı m geri kaydırma
+#         #     for j in range(i + 1, len(sorted_clusters)):
+#         #         sorted_clusters[j - 1] = sorted_clusters[j]
+    
+#         #     # Son elemanı listeden çıkar
+#         #     sorted_clusters.pop()
+#         print(f"i = {i}")
+#         for j in range(len(sorted_clusters[i])):
+#             # print(f"lenght = {len(sorted_clusters[i])} and i = {i}")
+#             if sorted_clusters[i][j] is not None:
+#                 x, y = sorted_clusters[i][j].get_center_point().x, sorted_clusters[i][j].get_center_point().y
+#                 distance = math.sqrt(x ** 2 + y ** 2)
+
+def compare_and_sort_legs(i,sorted_clusters, dolly_dimension_tolerance):
 
     coordinates = [sorted_clusters[i][j].get_center_point() for j in range(4)]
     x0, y0 = coordinates[0].x, coordinates[0].y
@@ -156,22 +174,20 @@ def compare_and_sort_legs(i,sorted_clusters):
     distance_2 = math.sqrt((x2 - x0) ** 2 + (y2 - y0) ** 2) 
     distance_3 = math.sqrt((x3 - x0) ** 2 + (y3 - y0) ** 2) 
 
-    offset = 0.16   
+    offset = dolly_dimension_tolerance
     if DOLLY_SIZE_HYPOTENUSE - offset <= distance_1 <= DOLLY_SIZE_HYPOTENUSE + offset:
         sorted_clusters[i][1], sorted_clusters[i][3] = sorted_clusters[i][3], sorted_clusters[i][1]
-        print("first if")
     if DOLLY_SIZE_HYPOTENUSE - offset <= distance_2 <= DOLLY_SIZE_HYPOTENUSE + offset:
         sorted_clusters[i][2], sorted_clusters[i][3] = sorted_clusters[i][3], sorted_clusters[i][2]
         if distance_3 < distance_1:
             sorted_clusters[i][1], sorted_clusters[i][2] = sorted_clusters[i][2], sorted_clusters[i][1]
-        print("second if")
     else:
         if distance_2 < distance_1:
             sorted_clusters[i][2], sorted_clusters[i][1] = sorted_clusters[i][1], sorted_clusters[i][2]
 
     return sorted_clusters
 
-def calculate_dolly_poses(kmeans, sorted_clusters):
+def calculate_dolly_poses(kmeans, sorted_clusters, dolly_dimension_tolerance):
     dolly_poses = []
     for i in range(len(kmeans.cluster_centers_)):
         dolly_center = Point()
@@ -179,7 +195,7 @@ def calculate_dolly_poses(kmeans, sorted_clusters):
         dolly_center.y = kmeans.cluster_centers_[i][1] * -1
 
         sorted_clusters[i] = sorted(sorted_clusters[i], key=lambda x: sort_dolly_legs(i, sorted_clusters))
-        sorted_clusters = compare_and_sort_legs(i,sorted_clusters)
+        sorted_clusters = compare_and_sort_legs(i,sorted_clusters, dolly_dimension_tolerance)
 
         # Center points of clusters
         x1, y1 = sorted_clusters[i][0].get_center_point().x, sorted_clusters[i][0].get_center_point().y
