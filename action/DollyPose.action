@@ -4,8 +4,10 @@ bool cancel
 ---
 # Define the result
 geometry_msgs/PoseArray poses
+bool success
 ---
 # Define a feedback message
 string message
+bool success
 geometry_msgs/PoseArray poses
 

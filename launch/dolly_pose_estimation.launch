@@ -1,0 +1,15 @@
+<launch>
+  <!-- Dolly Dimensions -->
+  <node pkg="dolly_pose_estimation" type="dolly_action_server.py" name="dolly_pose_estimation_server" output="screen">
+    <!-- Parameters to be used within the node -->
+    <param name="dolly_size_x" type="double" value="1.12895"/>
+    <param name="dolly_size_y" type="double" value="1.47598"/>
+    <param name="dolly_dimension_tolerance" type="double" value="0.15"/>
+    <!-- Laser Scanner Range -->
+    <param name="scan_range" type="double" value="3.0"/>
+    <!-- DBSCAN Clustering Parameters -->
+    <param name="dbscan_eps" type="double" value="0.25"/>
+    <param name="dbscan_min_samples" type="int" value="1"/>
+    <param name="dbscan_max_samples" type="int" value="6"/>    
+  </node>
+</launch>

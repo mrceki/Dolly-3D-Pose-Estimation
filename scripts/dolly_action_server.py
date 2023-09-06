@@ -9,19 +9,21 @@ from dolly_pose_estimation.msg import DollyPoseFeedback, DollyPoseResult
 
 import dolly_utils as utils
 
-# Size of dolly
-DOLLY_SIZE_X = 1.12895
-DOLLY_SIZE_Y = 1.47598
-DOLLY_SIZE_HYPOTENUSE = (DOLLY_SIZE_X ** 2 + DOLLY_SIZE_Y ** 2) ** 0.5
-
-
 class DollyPoseEstimationServer:
     def __init__(self):
-        self.server = SimpleActionServer('dolly_pose_estimation',  DollyPoseAction, self.execute, False)
+        self.server = SimpleActionServer('dolly_pose_estimation_server',  DollyPoseAction, self.execute, False)
         self.is_processing = False
         self.server.start()
 
     def execute(self, goal: DollyPoseGoal):
+        DOLLY_SIZE_X = rospy.get_param("/dolly_pose_estimation_server/dolly_size_x", 1.12895)
+        DOLLY_SIZE_Y = rospy.get_param("/dolly_pose_estimation_server/dolly_size_y", 1.47598)
+        DOLLY_SIZE_HYPOTENUSE = (DOLLY_SIZE_X ** 2 + DOLLY_SIZE_Y ** 2) ** 0.5
+        scan_range = rospy.get_param("/dolly_pose_estimation_server/scan_range", 3.0)
+        dbscan_eps = rospy.get_param("/dolly_pose_estimation_server/dbscan_eps", 0.1)
+        dbscan_min_samples = rospy.get_param("/dolly_pose_estimation_server/dbscan_min_samples", 1)
+        dbscan_max_samples = rospy.get_param("/dolly_pose_estimation_server/dbscan_max_samples", 6)
+        dolly_dimension_tolerance = rospy.get_param("/dolly_pose_estimation_server/dolly_dimension_tolerance", 0.15)
         feedback = DollyPoseFeedback()
         result = DollyPoseResult()
         if goal.cancel:
@@ -35,7 +37,7 @@ class DollyPoseEstimationServer:
         self.is_processing = True
         while self.is_processing:
             scan_data = rospy.wait_for_message("/scan", LaserScan, timeout=5)
-            cartesian_points = utils.cartesian_conversion(scan_data)
+            cartesian_points = utils.cartesian_conversion(scan_data, scan_range)
 
             if cartesian_points == []:
                 feedback.message = "Can't find any laser"
@@ -44,7 +46,7 @@ class DollyPoseEstimationServer:
                 result.success = False
                 continue
             
-            clusters = utils.dbscan_clustering(cartesian_points)
+            clusters = utils.dbscan_clustering(cartesian_points, dbscan_max_samples, dolly_dimension_tolerance, dbscan_eps, dbscan_min_samples, scan_range)
             num_clusters = len(clusters)
             utils.dolly_check(num_clusters)
 
@@ -55,7 +57,7 @@ class DollyPoseEstimationServer:
                 continue
 
             kmeans, sorted_clusters = utils.kmeans_clustering(clusters, num_clusters // 4)
-            dolly_poses = utils.calculate_dolly_poses(kmeans, sorted_clusters)       
+            dolly_poses = utils.calculate_dolly_poses(kmeans, sorted_clusters, dolly_dimension_tolerance)       
             utils.publish_transforms(dolly_poses, sorted_clusters)
             respond = utils.generate_poseArray(dolly_poses)
             
@@ -68,8 +70,6 @@ class DollyPoseEstimationServer:
             feedback.poses = respond
             feedback.success = True 
             self.server.publish_feedback(feedback)
-                 
-        
             # self.server.set_preempted(result)
 
 def main():
