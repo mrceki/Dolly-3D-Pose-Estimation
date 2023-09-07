@@ -9,11 +9,6 @@ import numpy as np
 import tf
 from geometry_msgs.msg import Point, TransformStamped, PoseArray, Pose
 
-# Size of dolly
-DOLLY_SIZE_X = 1.12895
-DOLLY_SIZE_Y = 1.47598
-DOLLY_SIZE_HYPOTENUSE = (DOLLY_SIZE_X ** 2 + DOLLY_SIZE_Y ** 2) ** 0.5
-
 class LegPointCluster:
     def __init__(self):
         self.points = []
@@ -82,7 +77,7 @@ def filter_clusters(clusters, dolly_dimension_tolerance, scan_range, dolly_dimen
                 distance = math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
                 dimension_offset = dolly_dimension_tolerance
                 DOLLY_SIZE_HYPOTENUSE = (dolly_dimensions[0] ** 2 + dolly_dimensions[1] ** 2) ** 0.5 # [0] = size of x, [1] = size of y
-                dimension_ranges = [(DOLLY_SIZE_X, dimension_offset), (DOLLY_SIZE_Y, dimension_offset), (DOLLY_SIZE_HYPOTENUSE, dimension_offset)]
+                dimension_ranges = [(dolly_dimensions[0], dimension_offset), (dolly_dimensions[1], dimension_offset), (DOLLY_SIZE_HYPOTENUSE, dimension_offset)]
 
                 if any((dim - offset <= distance <= dim + offset) for dim, offset in dimension_ranges):
                     valid_distance_count += 1
@@ -139,7 +134,7 @@ def sort_dolly_legs(i,sorted_clusters):
 #                 x, y = sorted_clusters[i][j].get_center_point().x, sorted_clusters[i][j].get_center_point().y
 #                 distance = math.sqrt(x ** 2 + y ** 2)
 
-def compare_and_sort_legs(i,sorted_clusters, dolly_dimension_tolerance):
+def compare_and_sort_legs(i,sorted_clusters, dolly_dimension_tolerance, dolly_dimensions):
 
     coordinates = [sorted_clusters[i][j].get_center_point() for j in range(4)]
     x0, y0 = coordinates[0].x, coordinates[0].y
@@ -151,6 +146,7 @@ def compare_and_sort_legs(i,sorted_clusters, dolly_dimension_tolerance):
     distance_2 = math.sqrt((x2 - x0) ** 2 + (y2 - y0) ** 2) 
     distance_3 = math.sqrt((x3 - x0) ** 2 + (y3 - y0) ** 2) 
 
+    DOLLY_SIZE_HYPOTENUSE = (dolly_dimensions[0] ** 2 + dolly_dimensions[1] ** 2) ** 0.5 # [0] = size of x, [1] = size of y
     offset = dolly_dimension_tolerance
     if DOLLY_SIZE_HYPOTENUSE - offset <= distance_1 <= DOLLY_SIZE_HYPOTENUSE + offset:
         sorted_clusters[i][1], sorted_clusters[i][3] = sorted_clusters[i][3], sorted_clusters[i][1]
@@ -164,7 +160,7 @@ def compare_and_sort_legs(i,sorted_clusters, dolly_dimension_tolerance):
 
     return sorted_clusters
 
-def calculate_dolly_poses(kmeans, sorted_clusters, dolly_dimension_tolerance):
+def calculate_dolly_poses(kmeans, sorted_clusters, dolly_dimension_tolerance, dolly_dimensions):
     dolly_poses = []
     for i in range(len(kmeans.cluster_centers_)):
         dolly_center = Point()
@@ -172,7 +168,7 @@ def calculate_dolly_poses(kmeans, sorted_clusters, dolly_dimension_tolerance):
         dolly_center.y = kmeans.cluster_centers_[i][1] * -1
 
         sorted_clusters[i] = sorted(sorted_clusters[i], key=lambda x: sort_dolly_legs(i, sorted_clusters))
-        sorted_clusters = compare_and_sort_legs(i,sorted_clusters, dolly_dimension_tolerance)
+        sorted_clusters = compare_and_sort_legs(i,sorted_clusters, dolly_dimension_tolerance, dolly_dimensions)
 
         # Center points of clusters
         x1, y1 = sorted_clusters[i][0].get_center_point().x, sorted_clusters[i][0].get_center_point().y

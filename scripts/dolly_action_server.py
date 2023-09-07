@@ -58,7 +58,7 @@ class DollyPoseEstimationServer:
                 continue
 
             kmeans, sorted_clusters = utils.kmeans_clustering(clusters, num_clusters // 4)
-            dolly_poses = utils.calculate_dolly_poses(kmeans, sorted_clusters, dolly_dimension_tolerance)       
+            dolly_poses = utils.calculate_dolly_poses(kmeans, sorted_clusters, dolly_dimension_tolerance, dolly_dimensions)       
             utils.publish_transforms(dolly_poses, sorted_clusters)
             respond = utils.generate_poseArray(dolly_poses)
             
