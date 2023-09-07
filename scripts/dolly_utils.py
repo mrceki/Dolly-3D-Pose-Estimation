@@ -53,45 +53,24 @@ def calculate_distance(cluster1, cluster2):
     distance = math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
     return distance
 
-def cluster_points(points, eps, min_samples, max_samples, dolly_dimension_tolerance, scan_range):
+def cluster_points(points, eps, min_samples, max_samples):
     # Convert to numpy array
     data = np.array([[point.x, point.y] for point in points])
-
     # Clustering with DBSCAN algorithm
     db = DBSCAN(eps=eps, min_samples=min_samples).fit(data)
 
     labels = db.labels_
 
-    # Clustering 
-    unfiltered_clusters = []
-    num_clusters = len(set(labels)) - (1 if -1 in labels else 0)
-    for i in range(num_clusters):
-        cluster = LegPointCluster()
-        cluster_points = [points[j] for j in range(len(points)) if labels[j] == i]
-        for point in cluster_points:
-            cluster.add_point(point)
-        if len(cluster_points) <= max_samples:  # If there are no more than 5 instances in the cluster
-            unfiltered_clusters.append(cluster)
+    clusters = {}
+    for i, label in enumerate(labels):
+        if label not in clusters:
+            clusters[label] = LegPointCluster()
+        clusters[label].add_point(points[i])
 
-   # Clustering filter -> Must have at least 3 clusters at 1.92 distance and clusters closer than 5 meters
-    clusters = []
-    for cluster in unfiltered_clusters:
-        x1, y1 = cluster.get_center_point().x, cluster.get_center_point().y
-        near_clusters = []
-        for other_cluster in unfiltered_clusters:
-            if other_cluster != cluster:
-                x2, y2 = other_cluster.get_center_point().x, other_cluster.get_center_point().y
-                distance = math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
-                if distance <= 1.80: #hypotenuse of dolly 
-                    near_clusters.append(other_cluster)
-        if len(near_clusters) >= 2 and cluster.get_center_point().x**2 + cluster.get_center_point().y**2 <= scan_range**2: # Check Here 
-            clusters.append(cluster)
+    return [cluster for cluster in clusters.values() if len(cluster.points) >= min_samples and len(cluster.points)<= max_samples] 
 
-    # Must other clusters at given sizes
+def filter_clusters(clusters, dolly_dimension_tolerance, scan_range, dolly_dimensions):
     filtered_clusters = []
-
-    dimension_offset = dolly_dimension_tolerance
-    dimension_ranges = [(DOLLY_SIZE_X, dimension_offset), (DOLLY_SIZE_Y, dimension_offset), (DOLLY_SIZE_HYPOTENUSE, dimension_offset)]
 
     for cluster in clusters:
         x1, y1 = cluster.get_center_point().x, cluster.get_center_point().y
@@ -101,11 +80,13 @@ def cluster_points(points, eps, min_samples, max_samples, dolly_dimension_tolera
             if other_cluster != cluster:
                 x2, y2 = other_cluster.get_center_point().x, other_cluster.get_center_point().y
                 distance = math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+                dimension_offset = dolly_dimension_tolerance
+                DOLLY_SIZE_HYPOTENUSE = (dolly_dimensions[0] ** 2 + dolly_dimensions[1] ** 2) ** 0.5 # [0] = size of x, [1] = size of y
+                dimension_ranges = [(DOLLY_SIZE_X, dimension_offset), (DOLLY_SIZE_Y, dimension_offset), (DOLLY_SIZE_HYPOTENUSE, dimension_offset)]
 
                 if any((dim - offset <= distance <= dim + offset) for dim, offset in dimension_ranges):
                     valid_distance_count += 1
-        # !!!!!!!!!!!!!1Fix here for more than 3 valid distance count!!!!!!!!!!!!!!
-        if valid_distance_count == 3:         
+        if valid_distance_count == 3 and cluster.get_center_point().x ** 2 + cluster.get_center_point().y ** 2 <= scan_range ** 2:
             filtered_clusters.append(cluster)
 
     return filtered_clusters
@@ -115,14 +96,10 @@ def dolly_check(num_clusters):
         rospy.logwarn("Number of clusters is not divisible by 4.") #FixMe
         return False
     
-def dbscan_clustering(cartesian_points, max_samples, dolly_dimension_tolerance, eps, min_samples, scan_range):
-    # DBSCAN Clustering hyperparameters
-    eps = eps # Distance (m)
-    min_samples = min_samples  # Minimum samples
-
-    dbscan_clusters = cluster_points(cartesian_points, eps, min_samples, max_samples, dolly_dimension_tolerance, scan_range)
-    
-    return dbscan_clusters
+def dbscan_clustering(cartesian_points, max_samples, dolly_dimension_tolerance, eps, min_samples, scan_range, dolly_dimensions):
+    clusters = cluster_points(cartesian_points, eps, min_samples, max_samples)
+    filtered_clusters = filter_clusters(clusters, dolly_dimension_tolerance, scan_range, dolly_dimensions)
+    return filtered_clusters
 
 def kmeans_clustering(clusters, dolly_count):
      # Apply k-means algorithm to group clusters

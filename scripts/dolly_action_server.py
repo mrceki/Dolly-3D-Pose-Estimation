@@ -18,7 +18,7 @@ class DollyPoseEstimationServer:
     def execute(self, goal: DollyPoseGoal):
         DOLLY_SIZE_X = rospy.get_param("/dolly_pose_estimation_server/dolly_size_x", 1.12895)
         DOLLY_SIZE_Y = rospy.get_param("/dolly_pose_estimation_server/dolly_size_y", 1.47598)
-        DOLLY_SIZE_HYPOTENUSE = (DOLLY_SIZE_X ** 2 + DOLLY_SIZE_Y ** 2) ** 0.5
+        dolly_dimensions = [DOLLY_SIZE_X, DOLLY_SIZE_Y]
         scan_range = rospy.get_param("/dolly_pose_estimation_server/scan_range", 3.0)
         dbscan_eps = rospy.get_param("/dolly_pose_estimation_server/dbscan_eps", 0.1)
         dbscan_min_samples = rospy.get_param("/dolly_pose_estimation_server/dbscan_min_samples", 1)
@@ -47,7 +47,7 @@ class DollyPoseEstimationServer:
                 result.success = False
                 continue
             
-            clusters = utils.dbscan_clustering(cartesian_points, dbscan_max_samples, dolly_dimension_tolerance, dbscan_eps, dbscan_min_samples, scan_range)
+            clusters = utils.dbscan_clustering(cartesian_points, dbscan_max_samples, dolly_dimension_tolerance, dbscan_eps, dbscan_min_samples, scan_range, dolly_dimensions)
             num_clusters = len(clusters)
             utils.dolly_check(num_clusters)
 
