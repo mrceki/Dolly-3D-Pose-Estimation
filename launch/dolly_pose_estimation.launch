@@ -1,6 +1,7 @@
 <launch>
   <node pkg="dolly_pose_estimation" type="dolly_action_server.py" name="dolly_pose_estimation_server" output="screen">
-     <!-- Dolly Dimensions -->
+    <param name="scan_topic" type="str" value="/scan"/>
+    <!-- Dolly Dimensions -->
     <param name="dolly_size_x" type="double" value="1.1895"/>
     <param name="dolly_size_y" type="double" value="1.43598"/>
     <param name="dolly_dimension_tolerance" type="double" value="0.2"/>
@@ -10,6 +11,8 @@
     <param name="dbscan_eps" type="double" value="0.25"/>
     <param name="dbscan_min_samples" type="int" value="1"/>
     <param name="dbscan_max_samples" type="int" value="8"/>    
-    <param name="scan_topic" type="str" value="/scan"/>
+    <param name="dbscan_max_samples" type="int" value="8"/>  
+    <!-- Set loop rate. Set "0" for nonstop loop -->
+    <param name="loop_rate" type="int" value="5"/>  
   </node>
 </launch>

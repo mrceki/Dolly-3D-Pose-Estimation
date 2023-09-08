@@ -380,18 +380,18 @@ def publish_transforms(dolly_poses, sorted_clusters):
     tf_broadcaster.sendTransform(cluster_transforms)
     rospy.loginfo("Number of Dolly Groups: %d", len(dolly_poses))
 
-def generate_poseArray(dolly_poses):
+def generate_PoseArray(dolly_poses):
     """
-    The function `generate_poseArray` takes a list of dolly poses and converts them into a PoseArray
+    The function `generate_PoseArray` takes a list of dolly poses and converts them into a PoseArray
     message with appropriate header and pose values.
     
     :param dolly_poses: dolly_poses is a list of tuples, where each tuple contains the dolly center
     position (x, y) and the dolly yaw angle
-    :return: a PoseArray object named "dolly_poseArray".
+    :return: a PoseArray object named "dolly_PoseArray".
     """
-    dolly_poseArray = PoseArray()
-    dolly_poseArray.header.frame_id = "base_link"
-    dolly_poseArray.header.stamp = rospy.Time.now()
+    dolly_PoseArray = PoseArray()
+    dolly_PoseArray.header.frame_id = "base_link"
+    dolly_PoseArray.header.stamp = rospy.Time.now()
 
     for i, (dolly_center, dolly_yaw) in enumerate(dolly_poses):
         dollys = Pose()
@@ -403,6 +403,6 @@ def generate_poseArray(dolly_poses):
         dollys.orientation.y   = quaternion[1]    
         dollys.orientation.z   = quaternion[2]
         dollys.orientation.w   = quaternion[3]
-        dolly_poseArray.poses.append(dollys)
+        dolly_PoseArray.poses.append(dollys)
 
-    return dolly_poseArray
+    return dolly_PoseArray
