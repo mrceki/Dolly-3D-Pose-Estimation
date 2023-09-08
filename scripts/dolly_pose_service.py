@@ -23,7 +23,7 @@ def dolly_pose_estimation_service(request):
 
     dolly_poses = utils.calculate_dolly_poses(kmeans, sorted_clusters)
     utils.publish_transforms(dolly_poses, sorted_clusters)
-    respond = utils.enerate_poseArray(dolly_poses)
+    respond = utils.enerate_PoseArray(dolly_poses)
     return respond
 
 def dolly_pose_estimation_server():
