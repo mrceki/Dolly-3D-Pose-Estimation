@@ -7,12 +7,15 @@
     <param name="dolly_dimension_tolerance" type="double" value="0.2"/>
     <!-- Laser Scanner Range -->
     <param name="scan_range" type="double" value="3.5"/>
+    <param name="cluster_range" type="double" value="3.5"/>
     <!-- DBSCAN Clustering Parameters -->
     <param name="dbscan_eps" type="double" value="0.25"/>
     <param name="dbscan_min_samples" type="int" value="1"/>
     <param name="dbscan_max_samples" type="int" value="8"/>    
     <param name="dbscan_max_samples" type="int" value="8"/>  
     <!-- Set loop rate. Set "0" for nonstop loop -->
-    <param name="loop_rate" type="int" value="5"/>  
+    <param name="loop_rate" type="int" value="0"/>
+    <!-- If tf published reverse, set this parameter True -->
+    <param name="tf_flip" type="bool" value="True"/>
   </node>
 </launch>

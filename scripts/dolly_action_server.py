@@ -15,6 +15,7 @@ class DollyPoseEstimationServer:
         self.is_processing = False
         self.scan_topic = rospy.get_param("/dolly_pose_estimation_server/scan_topic", "/scan")
         self.scan_range = rospy.get_param("/dolly_pose_estimation_server/scan_range", 3.0)
+        self.cluster_range = rospy.get_param("/dolly_pose_estimation_server/cluster_range", 3.0)
         self.dolly_dimensions = [
             rospy.get_param("/dolly_pose_estimation_server/dolly_size_x", 1.12895),
             rospy.get_param("/dolly_pose_estimation_server/dolly_size_y", 1.47598)
@@ -23,7 +24,7 @@ class DollyPoseEstimationServer:
         self.dbscan_min_samples = rospy.get_param("/dolly_pose_estimation_server/dbscan_min_samples", 1)
         self.dbscan_max_samples = rospy.get_param("/dolly_pose_estimation_server/dbscan_max_samples", 6)
         self.dolly_dimension_tolerance = rospy.get_param("/dolly_pose_estimation_server/dolly_dimension_tolerance", 0.15)
-        
+        self.tf_flip = rospy.get_param("/dolly_pose_estimation_server/tf_flip", False)
         self.feedback = DollyPoseFeedback()
         self.result = DollyPoseResult()
         
@@ -70,7 +71,7 @@ class DollyPoseEstimationServer:
                 self.dolly_dimension_tolerance,
                 self.dbscan_eps,
                 self.dbscan_min_samples,
-                self.scan_range,
+                self.cluster_range,
                 self.dolly_dimensions
             )
             num_clusters = len(clusters)
@@ -102,7 +103,7 @@ class DollyPoseEstimationServer:
                     self.dolly_dimension_tolerance,
                     self.dolly_dimensions
                 )
-                utils.publish_transforms(dolly_poses, sorted_clusters)
+                utils.publish_transforms(dolly_poses, self.tf_flip)
                 respond = utils.generate_PoseArray(dolly_poses)
 
                 self.feedback.status = f"{int(num_clusters/4)} dolly found."

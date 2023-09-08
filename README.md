@@ -42,6 +42,14 @@ rosrun dolly_pose_estimation dolly.py
 ```
 roslaunch dolly_pose_estimation dolly_pose_estimation.launch
 ```
+- Send an action goal request to start pose estimation
+```
+rostopic pub /dolly_pose_estimation_server/goal dolly_pose_estimation/DollyPoseActionGoal {} --once
+```
+- Send an action goal request to stop pose estimation
+```
+rostopic pub /dolly_pose_estimation_server/cancel actionlib_msgs/GoalID {} --once
+```
 The node will start processing laser scan data and estimating dolly poses. You can also use the provided action interface to request pose estimation.
 
 Launch File Parameters
