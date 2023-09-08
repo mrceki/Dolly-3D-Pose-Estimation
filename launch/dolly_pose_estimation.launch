@@ -12,7 +12,6 @@
     <param name="dbscan_eps" type="double" value="0.25"/>
     <param name="dbscan_min_samples" type="int" value="1"/>
     <param name="dbscan_max_samples" type="int" value="8"/>    
-    <param name="dbscan_max_samples" type="int" value="8"/>  
     <!-- Set loop rate. Set "0" for nonstop loop -->
     <param name="loop_rate" type="int" value="0"/>
     <!-- If tf published reverse, set this parameter True -->

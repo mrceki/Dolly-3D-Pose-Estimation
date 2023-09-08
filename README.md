@@ -55,9 +55,11 @@ The node will start processing laser scan data and estimating dolly poses. You c
 Launch File Parameters
 The launch file `dolly_pose_estimation.launch` accepts several parameters that you can customize:
 
+- `scan_topic`: Laser scan topic to subscribe to.
 - `dolly_size_x` and `dolly_size_y`: Dimensions of the dolly in the X and Y directions, respectively.
 - `dolly_dimension_tolerance`: Tolerance for dolly dimension comparison during sorting.
 - `scan_range`: Maximum range for laser scan data.
 - `dbscan_eps`: DBSCAN clustering parameter (maximum distance between points in a cluster).
 - `dbscan_min_samples` and `dbscan_max_samples`: Minimum and maximum number of samples for DBSCAN clustering.
-- `scan_topic`: Laser scan topic to subscribe to.
+- `loop_rate`: Set loop rate. Set "0" for nonstop loop.
+- `tf_flip`: If tf published reverse, set this parameter True.
