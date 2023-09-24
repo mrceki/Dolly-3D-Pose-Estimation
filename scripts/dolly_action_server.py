@@ -76,6 +76,11 @@ class DollyPoseEstimationServer:
             )
             num_clusters = len(clusters)
             utils.dolly_check(num_clusters)
+            
+            # When 7 legs detected but want to include in KMeans, increment the counter by one
+            dolly_count = num_clusters // 4
+            if num_clusters % 4 == 3:
+                dolly_count += 1
 
             if num_clusters < 4:
                 self.feedback.status = "Not enough clusters found."
@@ -87,35 +92,77 @@ class DollyPoseEstimationServer:
                     self.is_processing = False
                     return
             elif num_clusters % 4 != 0:
-                self.feedback.status = "Incorrect clustering, maybe another object detected. Check parameters!!!"
-                self.feedback.success = False
-                self.server.publish_feedback(self.feedback)
-                if self.server.is_preempt_requested():
-                    self.result.status = "Incorrect clustering was done, check parameters!!!"
-                    self.server.set_preempted(self.result)
-                    self.is_processing = False
-                    return
-            else:
-                kmeans, sorted_clusters = utils.kmeans_clustering(clusters, num_clusters // 4)
-                dolly_poses = utils.calculate_dolly_poses(
-                    kmeans,
-                    sorted_clusters,
-                    self.dolly_dimension_tolerance,
-                    self.dolly_dimensions
-                )
-                utils.publish_transforms(dolly_poses, self.tf_flip)
-                respond = utils.generate_PoseArray(dolly_poses)
+                if num_clusters %4 == 3 and num_clusters > 4:
+                    kmeans, sorted_clusters, kmeans_result = utils.kmeans_clustering(clusters, dolly_count)
+                    if kmeans_result == False:
+                        self.feedback.status = "KMeans algorith cant fit well, check parameters"
+                        self.feedback.success = False
+                        self.server.publish_feedback(self.feedback)
+                        if self.server.is_preempt_requested():
+                            self.result.status = "KMeans algorith cant fit well, check parameters"
+                            self.server.set_preempted(self.result)
+                            self.is_processing = False
+                            return
+                    else: 
+                        dolly_poses = utils.calculate_dolly_poses(
+                            kmeans,
+                            sorted_clusters,
+                            self.dolly_dimension_tolerance,
+                            self.dolly_dimensions
+                        )
+                        utils.publish_transforms(dolly_poses, self.tf_flip)
+                        respond = utils.generate_PoseArray(dolly_poses)
 
-                self.feedback.status = f"{int(num_clusters/4)} dolly found."
-                self.feedback.poses = respond
-                self.feedback.success = True
-                self.server.publish_feedback(self.feedback)
-                if self.server.is_preempt_requested():
-                    self.result.success = True
-                    self.result.status = f"{int(num_clusters/4)} dolly found."
-                    self.server.set_preempted(self.result)
-                    self.is_processing = False
-                    return
+                        self.feedback.status = f"{int(num_clusters/4)} dolly found. But there may be another dolly without laser data on one leg."
+                        self.feedback.poses = respond
+                        self.feedback.success = True
+                        self.server.publish_feedback(self.feedback)
+                        if self.server.is_preempt_requested():
+                            self.result.success = True
+                            self.result.status = f"{int(num_clusters/4)} dolly found. But there may be another dolly without laser data on one leg."
+                            self.server.set_preempted(self.result)
+                            self.is_processing = False
+                            return
+                else:
+                    self.feedback.status = "Incorrect clustering, maybe another object detected. Check parameters!!!"
+                    self.feedback.success = False
+                    self.server.publish_feedback(self.feedback)
+                    if self.server.is_preempt_requested():
+                        self.result.status = "Incorrect clustering was done, check parameters!!!"
+                        self.server.set_preempted(self.result)
+                        self.is_processing = False
+                        return
+            else:
+                kmeans, sorted_clusters, kmeans_result = utils.kmeans_clustering(clusters, dolly_count)
+                if kmeans_result == False:
+                        self.feedback.status = "KMeans algorith cant fit well, check parameters"
+                        self.feedback.success = False
+                        self.server.publish_feedback(self.feedback)
+                        if self.server.is_preempt_requested():
+                            self.result.status = "KMeans algorith cant fit well, check parameters"
+                            self.server.set_preempted(self.result)
+                            self.is_processing = False
+                            return
+                else: 
+                    dolly_poses = utils.calculate_dolly_poses(
+                        kmeans,
+                        sorted_clusters,
+                        self.dolly_dimension_tolerance,
+                        self.dolly_dimensions
+                    )
+                    utils.publish_transforms(dolly_poses, self.tf_flip)
+                    respond = utils.generate_PoseArray(dolly_poses)
+
+                    self.feedback.status = f"{int(num_clusters/4)} dolly found."
+                    self.feedback.poses = respond
+                    self.feedback.success = True
+                    self.server.publish_feedback(self.feedback)
+                    if self.server.is_preempt_requested():
+                        self.result.success = True
+                        self.result.status = f"{int(num_clusters/4)} dolly found."
+                        self.server.set_preempted(self.result)
+                        self.is_processing = False
+                        return
 
             if self.server.is_preempt_requested():
                 self.result.success = True
