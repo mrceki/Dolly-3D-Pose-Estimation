@@ -8,6 +8,7 @@ from dolly_pose_estimation.msg import DollyPoseAction, DollyPoseGoal
 from dolly_pose_estimation.msg import DollyPoseFeedback, DollyPoseResult
 
 import dolly_utils as utils
+import math
 
 class DollyPoseEstimationServer:
     def __init__(self):
@@ -15,6 +16,8 @@ class DollyPoseEstimationServer:
         self.is_processing = False
         self.scan_topic = rospy.get_param("/dolly_pose_estimation_server/scan_topic", "/scan")
         self.scan_range = rospy.get_param("/dolly_pose_estimation_server/scan_range", 3.0)
+        self.scan_start = rospy.get_param("/dolly_pose_estimation_server/scan_start", 0)
+        self.scan_end   = rospy.get_param("/dolly_pose_estimation_server/scan_end", 0)
         self.cluster_range = rospy.get_param("/dolly_pose_estimation_server/cluster_range", 3.0)
         self.dolly_dimensions = [
             rospy.get_param("/dolly_pose_estimation_server/dolly_size_x", 1.12895),
@@ -50,7 +53,8 @@ class DollyPoseEstimationServer:
         self.is_processing = True
         while self.is_processing and not rospy.is_shutdown():
             scan_data = rospy.wait_for_message(self.scan_topic, LaserScan, timeout=5)
-            cartesian_points = utils.cartesian_conversion(scan_data, self.scan_range)
+            cartesian_points = utils.cartesian_conversion(scan_data, self.scan_range, 
+                            scan_data.angle_min + self.scan_start, scan_data.angle_max - self.scan_end)
 
             if not cartesian_points:
                 self.feedback.status = "Can't find any laser"
