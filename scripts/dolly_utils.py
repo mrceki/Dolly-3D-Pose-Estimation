@@ -8,6 +8,7 @@ from sklearn.cluster import DBSCAN, KMeans
 import numpy as np
 import tf
 from geometry_msgs.msg import Point, TransformStamped, PoseArray, Pose
+from collections import Counter
 
 class LegPointCluster:
     """
@@ -32,10 +33,10 @@ class LegPointCluster:
             center_point.y = sum_y / num_points
         return center_point
 
-def cartesian_conversion(scan_data, scan_range):
+def cartesian_conversion(scan_data, scan_range, scan_start, scan_end):
     """
-    The function takes scan data and a scan range, and converts the data from polar coordinates to
-    Cartesian coordinates.
+    The function takes scan data, a scan range, and angle limits and converts the data from polar coordinates
+    to Cartesian coordinates within the specified angle limits.
     
     :param scan_data: The scan_data parameter is assumed to be an object that contains information about
     a laser scan. It likely has attributes such as angle_min, angle_max, angle_increment, and ranges.
@@ -43,12 +44,14 @@ def cartesian_conversion(scan_data, scan_range):
     maximum angle, angle_increment represents the
     :param scan_range: The scan_range parameter represents the maximum range value for the scan data. It
     is used to filter out range values that are greater than this value
-    :return: a list of cartesian points.
+    :param scan_start: The scan_start parameter represents the starting angle (in radians) for the scan data.
+    :param scan_end: The scan_end parameter represents the ending angle (in radians) for the scan data.
+    :return: a list of cartesian points within the specified angle limits.
     """
     cartesian_points = []
     angle = scan_data.angle_min
     for range_value in scan_data.ranges:
-        if not math.isnan(range_value) and range_value != 0.0 and range_value < scan_range:
+        if not math.isnan(range_value) and range_value != 0.0 and range_value < scan_range and angle >= scan_start and angle <= scan_end:
             x = range_value * math.cos(angle)
             y = range_value * math.sin(angle)
             point = Point(x, y, 0.0)
@@ -183,6 +186,27 @@ def dbscan_clustering(cartesian_points, max_samples, dolly_dimension_tolerance, 
     filtered_clusters = filter_clusters(clusters, dolly_dimension_tolerance, cluster_range, dolly_dimensions)
     return filtered_clusters
 
+def remove_missing_leg_points(kmeans, clusters):
+    counter = Counter(kmeans.labels_)
+    to_remove = set()
+
+    for element, count in counter.items():
+        if count != 4:
+            to_remove.add(element)
+    kmeans.labels_ = [element for element in kmeans.labels_ if element not in to_remove]
+    kmeans.cluster_centers_ = np.delete(kmeans.cluster_centers_, list(to_remove), axis=0)
+    filtered_clusters = [clusters[i] for i, element in enumerate(kmeans.labels_) if element not in to_remove]
+
+    kmeans.labels_ = np.array(kmeans.labels_)
+    unique_values = np.unique(kmeans.labels_)
+
+    for i, unique_value in enumerate(unique_values):
+        if i != unique_value:
+            kmeans.labels_[kmeans.labels_ == unique_value] = i
+
+    return kmeans, filtered_clusters
+
+
 def kmeans_clustering(clusters, dolly_count):
     """
     The function `kmeans_clustering` applies the k-means algorithm to group clusters and returns the
@@ -202,10 +226,21 @@ def kmeans_clustering(clusters, dolly_count):
     kmeans_data = np.array([[cluster.get_center_point().x, cluster.get_center_point().y] for cluster in clusters])
     kmeans_fit = KMeans(n_clusters=dolly_count, random_state=0, n_init="auto").fit(kmeans_data)
 
+    if(len(clusters)) % 4 != 0:
+        kmeans_fit, clusters = remove_missing_leg_points(kmeans_fit, clusters)
+        dolly_count-=1
     sorted_kmeans_clusters = [[] for _ in range(dolly_count)]
-    for j in range(dolly_count*4):
-        sorted_kmeans_clusters[kmeans_fit.labels_[j]].append(clusters[j])
-    return kmeans_fit, sorted_kmeans_clusters
+    
+    if len(kmeans_fit.labels_) == 0:
+        dolly_count = 0
+        rospy.logerr("K-means clustering failed.")
+        return None, None, False
+    else:
+        for j in range(dolly_count*4):
+            sorted_kmeans_clusters[kmeans_fit.labels_[j]].append(clusters[j])
+
+        return kmeans_fit, sorted_kmeans_clusters, True
+
 
 def sort_dolly_legs(i,sorted_clusters):
     """
