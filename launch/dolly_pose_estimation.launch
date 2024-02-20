@@ -1,19 +1,19 @@
 <launch>
   <node pkg="dolly_pose_estimation" type="dolly_action_server.py" name="dolly_pose_estimation_server" output="screen">
     <param name="scan_topic" type="str" value="/scan"/>
-    <param name="scan_start" type="double" value="1.0"/>
-    <param name="scan_end" type="double" value="1.0"/>
+    <param name="scan_start" type="double" value="0"/>
+    <param name="scan_end" type="double" value="0"/>
     <!-- Dolly Dimensions -->
-    <param name="dolly_size_x" type="double" value="1.0595"/>
+    <param name="dolly_size_x" type="double" value="1.0995"/>
     <param name="dolly_size_y" type="double" value="1.40"/>
     <param name="dolly_dimension_tolerance" type="double" value="0.2"/>
     <!-- Laser Scanner Range -->
-    <param name="scan_range" type="double" value="3.5"/>
-    <param name="cluster_range" type="double" value="3.5"/>
+    <param name="scan_range" type="double" value="5"/>
+    <param name="cluster_range" type="double" value="5"/>
     <!-- DBSCAN Clustering Parameters -->
-    <param name="dbscan_eps" type="double" value="0.2"/>
+    <param name="dbscan_eps" type="double" value="0.3"/>
     <param name="dbscan_min_samples" type="int" value="1"/>
-    <param name="dbscan_max_samples" type="int" value="10"/>    
+    <param name="dbscan_max_samples" type="int" value="15"/>    
     <!-- Set loop rate. Set "0" for nonstop loop -->
     <param name="loop_rate" type="int" value="0"/>
     <!-- If tf published reverse, set this parameter True -->

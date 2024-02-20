@@ -9,7 +9,8 @@ find_package(catkin REQUIRED COMPONENTS
   tf
   tf2_ros
   message_generation
-  std_msgs
+  
+  
   actionlib
   actionlib_msgs
 )
@@ -39,3 +40,4 @@ include_directories(
 
 add_executable(${PROJECT_NAME}_client src/dolly_client.cpp)
 target_link_libraries(${PROJECT_NAME}_client ${catkin_LIBRARIES})
+add_dependencies(${PROJECT_NAME}_client ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
