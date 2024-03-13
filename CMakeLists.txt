@@ -18,6 +18,7 @@ find_package(catkin REQUIRED COMPONENTS
 add_service_files(
   FILES
   DollyPose.srv
+  DollyPoseEstimate.srv
 )
 
 add_action_files(
