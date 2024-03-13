@@ -1,0 +1,3 @@
+geometry_msgs/PoseArray cluster_poses
+---
+geometry_msgs/PoseArray poses
