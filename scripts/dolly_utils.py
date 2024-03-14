@@ -131,22 +131,24 @@ def filter_clusters(clusters, dolly_dimension_tolerance, cluster_range, dolly_di
 
     for cluster in clusters:
         x1, y1 = cluster.get_center_point().x, cluster.get_center_point().y
-        valid_distance_count = 0
-
+        dolly_x, dolly_y, dolly_hypotenuse = False, False, False 
         for other_cluster in clusters:
             if other_cluster != cluster:
                 x2, y2 = other_cluster.get_center_point().x, other_cluster.get_center_point().y
                 distance = math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
                 dimension_offset = dolly_dimension_tolerance
-                DOLLY_SIZE_HYPOTENUSE = (dolly_dimensions[0] ** 2 + dolly_dimensions[1] ** 2) ** 0.5 # [0] = size of x, [1] = size of y
+                DOLLY_SIZE_HYPOTENUSE = (dolly_dimensions[0] ** 2 + dolly_dimensions[1] ** 2) ** 0.5
                 dimension_ranges = [(dolly_dimensions[0], dimension_offset), (dolly_dimensions[1], dimension_offset), (DOLLY_SIZE_HYPOTENUSE, dimension_offset)]
-
-                if any((dim - offset <= distance <= dim + offset) for dim, offset in dimension_ranges):
-                    valid_distance_count += 1
-        if valid_distance_count == 3 and cluster.get_center_point().x ** 2 + cluster.get_center_point().y ** 2 <= cluster_range ** 2:
+                for dim, offset in dimension_ranges:
+                    if dim - offset <= distance <= dim + offset:
+                        if dim == dolly_dimensions[0]:
+                            dolly_x = True
+                        elif dim == dolly_dimensions[1]:
+                            dolly_y = True
+                        elif dim == DOLLY_SIZE_HYPOTENUSE:
+                            dolly_hypotenuse = True
+        if dolly_x and dolly_y and dolly_hypotenuse and (x1 ** 2 + y1 ** 2 <= cluster_range ** 2):
             filtered_clusters.append(cluster)
-
-    return filtered_clusters
 
 def dolly_check(num_clusters):
     """
@@ -358,7 +360,7 @@ def publish_transforms(dolly_poses, tf_flip):
         # Dolly TF
         dolly_transform = TransformStamped()
         dolly_transform.header.stamp = rospy.Time.now()
-        dolly_transform.header.frame_id = "base_link"
+        dolly_transform.header.frame_id = "camera_link"
         dolly_transform.child_frame_id = f"dolly_{i}"
         dolly_transform.transform.translation.x = dolly_center.x if not tf_flip else dolly_center.x * -1
         dolly_transform.transform.translation.y = dolly_center.y if not tf_flip else dolly_center.y * -1
