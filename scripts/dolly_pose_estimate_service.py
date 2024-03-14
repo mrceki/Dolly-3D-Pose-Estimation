@@ -10,8 +10,8 @@ DOLLY_SIZE_X = 1.12895
 DOLLY_SIZE_Y = 1.47598
 DOLLY_SIZE_HYPOTENUSE = (DOLLY_SIZE_X ** 2 + DOLLY_SIZE_Y ** 2) ** 0.5
 
-dolly_dimensions = [DOLLY_SIZE_X, DOLLY_SIZE_Y]
-dolly_dimension_tolerance = 0.15
+dolly_dimensions = [DOLLY_SIZE_X, DOLLY_SIZE_Y, DOLLY_SIZE_HYPOTENUSE]
+dolly_dimension_tolerance = 0.1
 
 def convert_request(request):
     clusters = []
@@ -25,7 +25,7 @@ def dolly_pose_estimation_service(request):
     # cartesian_points = utils.cartesian_conversion(request.cluster_poses)
     # clusters = utils.dbscan_clustering(cartesian_points)
     clusters = convert_request(request)
-    # Check if the number of clusters is divisible by 4
+    clusters = utils.filter_clusters(clusters,dolly_dimension_tolerance,5,dolly_dimensions)
     num_clusters = len(clusters)
     utils.dolly_check(num_clusters)
     if num_clusters < 4:
