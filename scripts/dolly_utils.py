@@ -149,6 +149,7 @@ def filter_clusters(clusters, dolly_dimension_tolerance, cluster_range, dolly_di
                             dolly_hypotenuse = True
         if dolly_x and dolly_y and dolly_hypotenuse and (x1 ** 2 + y1 ** 2 <= cluster_range ** 2):
             filtered_clusters.append(cluster)
+    return filtered_clusters
 
 def dolly_check(num_clusters):
     """
@@ -340,7 +341,7 @@ def calculate_dolly_poses(kmeans, sorted_clusters, dolly_dimension_tolerance, do
         
         dolly_yaw = math.atan2(y2 - y1, x2 - x1) - math.pi/2
         dolly_poses.append((dolly_center, dolly_yaw))
-
+    print("Dolly Poses:", dolly_poses)
     return dolly_poses
 
 def publish_transforms(dolly_poses, tf_flip):
